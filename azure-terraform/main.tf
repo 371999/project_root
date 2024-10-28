@@ -126,7 +126,7 @@ resource "azurerm_linux_virtual_machine" "dev_vm" {
 
   admin_ssh_key {
     username   = "azureuser"
-    public_key = file("id_rsa.pub")
+    public_key = file("D:/Terraform/id_rsa.pub")
   }
 
   network_interface_ids = [azurerm_network_interface.dev_nic.id]
@@ -159,4 +159,14 @@ output "vm_public_ip" {
 
 output "acr_login_server" {
   value = azurerm_container_registry.acr.login_server
+}
+
+output "acr_username" {
+  value     = azurerm_container_registry.acr.admin_username
+  sensitive = true
+}
+
+output "acr_password" {
+  value     = azurerm_container_registry.acr.admin_password
+  sensitive = true
 }
