@@ -10,16 +10,16 @@ jobs:
     name: Provision Infrastructure with Terraform
     runs-on: ubuntu-latest
     outputs:
-      vm_ip: ${{ steps.get_ip.outputs.vm_public_ip }}
-      acr_login_server: ${{ steps.get_ip.outputs.acr_login_server }}
-      acr_username: ${{ steps.get_ip.outputs.acr_username }}
-      acr_password: ${{ steps.get_ip.outputs.acr_password }}
+      vm_ip: ${{ env.vm_public_ip }}
+      acr_login_server: ${{ env.acr_login_server }}
+      acr_username: ${{ env.acr_username }}
+      acr_password: ${{ env.acr_password }}
     steps:
       - name: Check out the code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: Set up Terraform
-        uses: hashicorp/setup-terraform@v1
+        uses: hashicorp/setup-terraform@v2
 
       - name: Terraform Init and Apply
         id: get_ip
@@ -31,11 +31,11 @@ jobs:
         run: |
           cd azure-terraform
           terraform init
-          terraform apply -auto-approve -var="ssh_public_key=${{ secrets.SSH_PUBLIC_KEY }}"
-          echo "::set-output name=vm_public_ip::$(terraform output -raw vm_public_ip)"
-          echo "::set-output name=acr_login_server::$(terraform output -raw acr_login_server)"
-          echo "::set-output name=acr_username::$(terraform output -raw acr_username)"
-          echo "::set-output name=acr_password::$(terraform output -raw acr_password)"
+          terraform apply -auto-approve
+          echo "vm_public_ip=$(terraform output -raw vm_public_ip)" >> $GITHUB_ENV
+          echo "acr_login_server=$(terraform output -raw acr_login_server)" >> $GITHUB_ENV
+          echo "acr_username=$(terraform output -raw acr_username)" >> $GITHUB_ENV
+          echo "acr_password=$(terraform output -raw acr_password)" >> $GITHUB_ENV
 
   configure-vm:
     name: Configure VM with Ansible
@@ -43,24 +43,25 @@ jobs:
     needs: provision-infrastructure
     steps:
       - name: Check out the code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: Set up SSH Key
         run: |
           echo "${{ secrets.SSH_PRIVATE_KEY }}" > ssh_key.pem
           chmod 600 ssh_key.pem
 
+      - name: Test SSH Connection
+        run: |
+          ssh -o "StrictHostKeyChecking=no" -i ssh_key.pem azureuser@${{ env.vm_public_ip }} echo "SSH Connection Successful"
+
       - name: SSH into VM to Install Ansible and Run Playbook
         run: |
-          ssh -o "StrictHostKeyChecking=no" -i ssh_key.pem azureuser@${{ needs.provision-infrastructure.outputs.vm_ip }} << EOF
-            # Update package list and install Ansible
+          ssh -o "StrictHostKeyChecking=no" -i ssh_key.pem azureuser@${{ env.vm_public_ip }} << EOF
             sudo apt update
             sudo apt install -y ansible
-
-            # Copy and run the Ansible playbook to install Docker, Kind, and Kubernetes
             mkdir -p ~/ansible-playbooks
-            echo '${{ toJSON(github.event.head_commit.message) }}' > ~/ansible-playbooks/install_docker-kubernetics.yaml
-            ansible-playbook -i "localhost," -c local ~/ansible-playbooks/install_docker_kubernetics.yaml
+            cp ansible-playbooks/install_docker_kubernetics.yaml ~/ansible-playbooks/
+            ansible-playbook -i "localhost," -c local ~/ansible-playbooks/install_docker-kubernetics.yaml
           EOF
         shell: bash
 
@@ -70,24 +71,24 @@ jobs:
     needs: configure-vm
     steps:
       - name: Check out the code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: Log in to Azure Container Registry
         uses: azure/docker-login@v1
         with:
-          login-server: ${{ needs.provision-infrastructure.outputs.acr_login_server }}
-          username: ${{ needs.provision-infrastructure.outputs.acr_username }}
-          password: ${{ needs.provision-infrastructure.outputs.acr_password }}
+          login-server: ${{ env.acr_login_server }}
+          username: ${{ env.acr_username }}
+          password: ${{ env.acr_password }}
 
       - name: Build and Push Frontend Image
         run: |
-          docker build -t ${{ needs.provision-infrastructure.outputs.acr_login_server }}/frontend:v1 -f frontend/Dockerfile .
-          docker push ${{ needs.provision-infrastructure.outputs.acr_login_server }}/frontend:v1
+          docker build -t ${{ env.acr_login_server }}/frontend:v1 -f frontend/Dockerfile .
+          docker push ${{ env.acr_login_server }}/frontend:v1
 
       - name: Build and Push Backend Image
         run: |
-          docker build -t ${{ needs.provision-infrastructure.outputs.acr_login_server }}/backend:v1 -f backend/Dockerfile .
-          docker push ${{ needs.provision-infrastructure.outputs.acr_login_server }}/backend:v1
+          docker build -t ${{ env.acr_login_server }}/backend:v1 -f backend/Dockerfile .
+          docker push ${{ env.acr_login_server }}/backend:v1
 
   deploy-to-kubernetes:
     name: Deploy to Kubernetes
@@ -95,7 +96,7 @@ jobs:
     needs: build-and-push-docker
     steps:
       - name: Check out the code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: Set up SSH Key
         run: |
@@ -104,15 +105,15 @@ jobs:
 
       - name: Replace ACR Login Server in Kubernetes Manifests
         run: |
-          sed -i "s|{{ ACR_LOGIN_SERVER }}|${{ needs.provision-infrastructure.outputs.acr_login_server }}|g" k8s-manifests/*.yaml
+          sed -i "s|{{ ACR_LOGIN_SERVER }}|${{ env.acr_login_server }}|g" k8s-manifests/*.yaml
 
       - name: Copy Kubernetes Manifests to VM
         run: |
-          scp -o "StrictHostKeyChecking=no" -i ssh_key.pem k8s-manifests/*.yaml azureuser@${{ needs.provision-infrastructure.outputs.vm_ip }}:/home/azureuser/
+          scp -o "StrictHostKeyChecking=no" -i ssh_key.pem k8s-manifests/*.yaml azureuser@${{ env.vm_public_ip }}:/home/azureuser/
 
       - name: SSH into VM and Apply Kubernetes Configs
         run: |
-          ssh -o "StrictHostKeyChecking=no" -i ssh_key.pem azureuser@${{ needs.provision-infrastructure.outputs.vm_ip }} << EOF
+          ssh -o "StrictHostKeyChecking=no" -i ssh_key.pem azureuser@${{ env.vm_public_ip }} << EOF
             kubectl create namespace my-namespace
             kubectl apply -f /home/azureuser/mongodb_deployment.yaml -n my-namespace
             kubectl apply -f /home/azureuser/backend_deployment.yaml -n my-namespace
