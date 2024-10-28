@@ -59,8 +59,8 @@ jobs:
 
             # Copy and run the Ansible playbook to install Docker, Kind, and Kubernetes
             mkdir -p ~/ansible-playbooks
-            echo '${{ toJSON(github.event.head_commit.message) }}' > ~/ansible-playbooks/install_docker-kubernetics.yaml
-            ansible-playbook -i "localhost," -c local ~/ansible-playbooks/install_docker-kubernetics.yaml
+            echo '${{ toJSON(github.event.head_commit.message) }}' > ~/ansible-playbooks/install_docker_kubernetes.yml
+            ansible-playbook -i "localhost," -c local ~/ansible-playbooks/install_docker_kubernetes.yml
           EOF
         shell: bash
 
@@ -89,43 +89,32 @@ jobs:
           docker build -t ${{ needs.provision-infrastructure.outputs.acr_login_server }}/backend:v1 -f backend/Dockerfile .
           docker push ${{ needs.provision-infrastructure.outputs.acr_login_server }}/backend:v1
 
- deploy-to-kubernetes:
-  name: Deploy to Kubernetes
-  runs-on: ubuntu-latest
-  needs: build-and-push-docker
-  steps:
-    - name: Check out the code
-      uses: actions/checkout@v2
+  deploy-to-kubernetes:
+    name: Deploy to Kubernetes
+    runs-on: ubuntu-latest
+    needs: build-and-push-docker
+    steps:
+      - name: Check out the code
+        uses: actions/checkout@v2
 
-    - name: Set up SSH Key
-      run: |
-        echo "${{ secrets.SSH_PRIVATE_KEY }}" > ssh_key.pem
-        chmod 600 ssh_key.pem
+      - name: Set up SSH Key
+        run: |
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ssh_key.pem
+          chmod 600 ssh_key.pem
 
-    - name: Replace ACR Login Server in Kubernetes Manifests
-      run: |
-        sed -i "s|{{ ACR_LOGIN_SERVER }}|${{ needs.provision-infrastructure.outputs.acr_login_server }}|g" k8s-manifests/*.yaml
+      - name: Replace ACR Login Server in Kubernetes Manifests
+        run: |
+          sed -i "s|{{ ACR_LOGIN_SERVER }}|${{ needs.provision-infrastructure.outputs.acr_login_server }}|g" k8s-manifests/*.yaml
 
-    - name: SSH into VM, Prepare Directory, and Apply Configs
-      run: |
-        ssh -o "StrictHostKeyChecking=no" -i ssh_key.pem azureuser@${{ needs.provision-infrastructure.outputs.vm_ip }} << 'EOF'
-          # Create namespace if it doesn't exist
-          kubectl create namespace my-namespace || true
+      - name: Copy Kubernetes Manifests to VM
+        run: |
+          scp -o "StrictHostKeyChecking=no" -i ssh_key.pem k8s-manifests/*.yaml azureuser@${{ needs.provision-infrastructure.outputs.vm_ip }}:/home/azureuser/
 
-          # Create directory for Kubernetes manifests
-          mkdir -p ~/k8s-manifests
-        EOF
-
-    - name: Copy Kubernetes Manifests to VM
-      run: |
-        scp -o "StrictHostKeyChecking=no" -i ssh_key.pem k8s-manifests/*.yaml azureuser@${{ needs.provision-infrastructure.outputs.vm_ip }}:/home/azureuser/k8s-manifests/
-
-    - name: SSH into VM and Apply Kubernetes Configs
-      run: |
-        ssh -o "StrictHostKeyChecking=no" -i ssh_key.pem azureuser@${{ needs.provision-infrastructure.outputs.vm_ip }} << 'EOF'
-          # Apply Kubernetes configs
-          kubectl apply -f ~/k8s-manifests/mongodb_deployment.yaml -n my-namespace
-          kubectl apply -f ~/k8s-manifests/backend_deployment.yaml -n my-namespace
-          kubectl apply -f ~/k8s-manifests/frontend_deployment.yaml -n my-namespace
-        EOF
-
+      - name: SSH into VM and Apply Kubernetes Configs
+        run: |
+          ssh -o "StrictHostKeyChecking=no" -i ssh_key.pem azureuser@${{ needs.provision-infrastructure.outputs.vm_ip }} << EOF
+            kubectl create namespace my-namespace
+            kubectl apply -f /home/azureuser/mongodb_deployment.yaml -n my-namespace
+            kubectl apply -f /home/azureuser/backend_deployment.yaml -n my-namespace
+            kubectl apply -f /home/azureuser/frontend_deployment.yaml -n my-namespace
+          EOF
