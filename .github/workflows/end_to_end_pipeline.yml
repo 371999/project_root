@@ -5,7 +5,7 @@ on:
     branches:
       - main
 
-jobs:
+jobs: 
   provision-infrastructure:
     name: Provision Infrastructure with Terraform
     runs-on: ubuntu-latest
