@@ -60,7 +60,7 @@ jobs:
             # Copy and run the Ansible playbook to install Docker, Kind, and Kubernetes
             mkdir -p ~/ansible-playbooks
             echo '${{ toJSON(github.event.head_commit.message) }}' > ~/ansible-playbooks/install_docker_kubernetes.yml
-            ansible-playbook -i "localhost," -c local ~/ansible-playbooks/install_docker_kubernetes.yml
+            ansible-playbook -i "localhost," -c local ~/ansible-playbooks/install_docker_kubernetes.yaml
           EOF
         shell: bash
 
