@@ -52,7 +52,7 @@ jobs:
 
       - name: SSH into VM to Install Ansible and Run Playbook
         run: |
-          ssh -o "StrictHostKeyChecking=no" -i ssh_key.pem azureuser@$vm_public_ip << EOF
+          ssh -o "StrictHostKeyChecking=no" -i ssh_key.pem azureuser@${{ needs.provision-infrastructure.outputs.vm_public_ip }} << EOF
             # Update package list and install Ansible
             sudo apt update
             sudo apt install -y ansible
@@ -108,7 +108,7 @@ jobs:
 
       - name: Copy Kubernetes Manifests to VM
         run: |
-          scp -o "StrictHostKeyChecking=no" -i ssh_key.pem k8s-manifests/*.yaml azureuser@$$vm_public_ip:/home/azureuser/
+          scp -o "StrictHostKeyChecking=no" -i ssh_key.pem k8s-manifests/*.yaml azureuser@${{ needs.provision-infrastructure.outputs.vm_public_ip }}:/home/azureuser/
 
       - name: SSH into VM and Apply Kubernetes Configs
         run: |
