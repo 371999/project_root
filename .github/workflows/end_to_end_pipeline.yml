@@ -52,15 +52,15 @@ jobs:
 
       - name: SSH into VM to Install Ansible and Run Playbook
         run: |
-          ssh -o "StrictHostKeyChecking=no" -i ssh_key.pem azureuser@${{ needs.provision-infrastructure.outputs.vm_ip }} << EOF
+          ssh -o "StrictHostKeyChecking=no" -i ssh_key.pem azureuser@$vm_public_ip << EOF
             # Update package list and install Ansible
             sudo apt update
             sudo apt install -y ansible
 
             # Copy and run the Ansible playbook to install Docker, Kind, and Kubernetes
             mkdir -p ~/ansible-playbooks
-            echo '${{ toJSON(github.event.head_commit.message) }}' > ~/ansible-playbooks/install_docker_kubernetes.yml
-            ansible-playbook -i "localhost," -c local ~/ansible-playbooks/install_docker_kubernetes.yml
+            echo '${{ toJSON(github.event.head_commit.message) }}' > ~/ansible-playbooks/install_docker-kubernetics.yml
+            ansible-playbook -i "localhost," -c local ~/ansible-playbooks/install_docker-kubernetics.yml
           EOF
         shell: bash
 
@@ -108,11 +108,11 @@ jobs:
 
       - name: Copy Kubernetes Manifests to VM
         run: |
-          scp -o "StrictHostKeyChecking=no" -i ssh_key.pem k8s-manifests/*.yaml azureuser@${{ needs.provision-infrastructure.outputs.vm_ip }}:/home/azureuser/
+          scp -o "StrictHostKeyChecking=no" -i ssh_key.pem k8s-manifests/*.yaml azureuser@$$vm_public_ip:/home/azureuser/
 
       - name: SSH into VM and Apply Kubernetes Configs
         run: |
-          ssh -o "StrictHostKeyChecking=no" -i ssh_key.pem azureuser@${{ needs.provision-infrastructure.outputs.vm_ip }} << EOF
+          ssh -o "StrictHostKeyChecking=no" -i ssh_key.pem azureuser@$vm_public_ip << EOF
             kubectl create namespace my-namespace
             kubectl apply -f /home/azureuser/mongodb_deployment.yaml -n my-namespace
             kubectl apply -f /home/azureuser/backend_deployment.yaml -n my-namespace
