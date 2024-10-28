@@ -126,7 +126,7 @@ resource "azurerm_linux_virtual_machine" "dev_vm" {
 
   admin_ssh_key {
     username   = "azureuser"
-    public_key = file("D:/Terraform/id_rsa.pub")
+    public_key = var.ssh_public_key
   }
 
   network_interface_ids = [azurerm_network_interface.dev_nic.id]
