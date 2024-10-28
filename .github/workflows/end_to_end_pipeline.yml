@@ -3,7 +3,7 @@ name: End-to-End CI/CD Pipeline
 on:
   push:
     branches:
-      - main
+      - main 
 
 jobs: 
   provision-infrastructure:
