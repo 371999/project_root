@@ -3,9 +3,9 @@ name: End-to-End CI/CD Pipeline
 on:
   push:
     branches:
-      - main 
+      - main
 
-jobs: 
+jobs:
   provision-infrastructure:
     name: Provision Infrastructure with Terraform
     runs-on: ubuntu-latest
@@ -23,14 +23,17 @@ jobs:
 
       - name: Terraform Init and Apply
         id: apply
+        shell: bash
         env:
           ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
           ARM_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
           ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
           ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          TF_LOG: ERROR  # Suppress Terraform debug output
         run: |
+          set -e
           cd azure-terraform
-          terraform init 
+          terraform init
           terraform apply -auto-approve -var="ssh_public_key=${{ secrets.SSH_PUBLIC_KEY }}"
 
           # Capture outputs
@@ -39,12 +42,16 @@ jobs:
           ACR_USERNAME=$(terraform output -raw acr_username)
           ACR_PASSWORD=$(terraform output -raw acr_password)
 
-          # Set step outputs using $GITHUB_OUTPUT
-          echo "vm_public_ip=$VM_IP" >> $GITHUB_OUTPUT
-          echo "acr_login_server=$ACR_LOGIN_SERVER" >> $GITHUB_OUTPUT
-          echo "acr_username=$ACR_USERNAME" >> $GITHUB_OUTPUT
-          echo "acr_password=$ACR_PASSWORD" >> $GITHUB_OUTPUT
+          # Disable debugging and redirect outputs to avoid interference
+          set +x
+          exec 1>/dev/null
 
+          # Write outputs to $GITHUB_OUTPUT
+          echo "vm_public_ip=$VM_IP" >> "$GITHUB_OUTPUT"
+          echo "acr_login_server=$ACR_LOGIN_SERVER" >> "$GITHUB_OUTPUT"
+          echo "acr_username=$ACR_USERNAME" >> "$GITHUB_OUTPUT"
+          echo "acr_password=$ACR_PASSWORD" >> "$GITHUB_OUTPUT"
+          
   configure-vm:
     name: Configure VM with Ansible
     runs-on: ubuntu-latest
