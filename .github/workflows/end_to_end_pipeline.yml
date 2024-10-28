@@ -10,10 +10,10 @@ jobs:
     name: Provision Infrastructure with Terraform
     runs-on: ubuntu-latest
     outputs:
-      vm_ip: ${{ env.vm_public_ip }}
-      acr_login_server: ${{ env.acr_login_server }}
-      acr_username: ${{ env.acr_username }}
-      acr_password: ${{ env.acr_password }}
+      vm_ip: ${{ steps.set_env.outputs.vm_public_ip }}
+      acr_login_server: ${{ steps.set_env.outputs.acr_login_server }}
+      acr_username: ${{ steps.set_env.outputs.acr_username }}
+      acr_password: ${{ steps.set_env.outputs.acr_password }}
     steps:
       - name: Check out the code
         uses: actions/checkout@v3
@@ -22,7 +22,7 @@ jobs:
         uses: hashicorp/setup-terraform@v2
 
       - name: Terraform Init and Apply
-        id: get_ip
+        id: apply
         env:
           ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
           ARM_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
@@ -32,6 +32,8 @@ jobs:
           cd azure-terraform
           terraform init
           terraform apply -auto-approve -var="ssh_public_key=${{ secrets.SSH_PUBLIC_KEY }}"
+          
+          # Set outputs to environment variables
           echo "vm_public_ip=$(terraform output -raw vm_public_ip)" >> $GITHUB_ENV
           echo "acr_login_server=$(terraform output -raw acr_login_server)" >> $GITHUB_ENV
           echo "acr_username=$(terraform output -raw acr_username)" >> $GITHUB_ENV
@@ -60,8 +62,8 @@ jobs:
             sudo apt update
             sudo apt install -y ansible
             mkdir -p ~/ansible-playbooks
-            cp ansible-playbooks/install_docker_kubernetics.yaml ~/ansible-playbooks/
-            ansible-playbook -i "localhost," -c local ~/ansible-playbooks/install_docker-kubernetics.yaml
+            cp ansible-playbooks/install_docker-kubernetics.yml ~/ansible-playbooks/
+            ansible-playbook -i "localhost," -c local ~/ansible-playbooks/install_docker-kubernetics.yml
           EOF
         shell: bash
 
