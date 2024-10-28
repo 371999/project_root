@@ -143,45 +143,6 @@ resource "azurerm_linux_virtual_machine" "dev_vm" {
     version   = "latest"
   }
 
-  custom_data = base64encode(<<-EOF
-      #!/bin/bash
-      set -ex
-
-      # Install Docker
-      sudo apt-get update -y
-      sudo apt-get install -y docker.io
-      sudo systemctl start docker
-      sudo systemctl enable docker
-      sudo usermod -aG docker azureuser
-
-      # Install kind
-      curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.11.0/kind-linux-amd64
-      chmod +x ./kind
-      sudo mv ./kind /usr/local/bin/kind
-
-      # Install kubectl
-      curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
-      chmod +x ./kubectl
-      sudo mv ./kubectl /usr/local/bin/kubectl
-
-      # Create kind-config.yaml in the home directory
-      cat <<EOT > /home/azureuser/kind-config.yaml
-      kind: Cluster
-      apiVersion: kind.x-k8s.io/v1alpha4
-      nodes:
-      - role: control-plane
-        extraPortMappings:
-        - containerPort: 6443
-          hostPort: 6443
-          listenAddress: "127.0.0.1"
-          protocol: TCP
-      EOT
-
-      # Create kind cluster using the configuration file
-      sleep 30  # Wait for Docker to be fully up
-      kind create cluster --config /home/azureuser/kind-config.yaml || { echo 'Cluster creation failed. Retrying...'; kind delete cluster; sleep 10; kind create cluster --config /home/azureuser/kind-config.yaml; }
-  EOF
-  )
 }
 
 resource "azurerm_container_registry" "acr" {
