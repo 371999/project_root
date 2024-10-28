@@ -37,7 +37,7 @@ jobs:
           terraform apply -auto-approve -var="ssh_public_key=${{ secrets.SSH_PUBLIC_KEY }}"
 
           # Capture outputs
-          VM_IP=$(terraform output -raw vm_public_ip)
+          VM_IP=$(terraform output -raw -quiet vm_public_ip)
           ACR_LOGIN_SERVER=$(terraform output -raw acr_login_server)
           ACR_USERNAME=$(terraform output -raw acr_username)
           ACR_PASSWORD=$(terraform output -raw acr_password)
