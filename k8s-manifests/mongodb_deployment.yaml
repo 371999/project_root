@@ -1,1 +1,47 @@
-d
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mongodb
+  namespace: my-namespace
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mongodb
+  template:
+    metadata:
+      labels:
+        app: mongodb
+    spec:
+      containers:
+        - name: mongodb
+          image: mongo:latest
+          ports:
+            - containerPort: 27017
+          volumeMounts:
+            - name: mongo-init-script
+              mountPath: /docker-entrypoint-initdb.d
+      initContainers:
+        - name: init-mongo
+          image: mongo:latest
+          command:
+            - bash
+            - "-c"
+            - |
+              echo 'use mydatabase;' > /docker-entrypoint-initdb.d/init-mongo.js
+      volumes:
+        - name: mongo-init-script
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongodb-service
+  namespace: my-namespace
+spec:
+  selector:
+    app: mongodb
+  ports:
+    - protocol: TCP
+      port: 27017
+      targetPort: 27017
