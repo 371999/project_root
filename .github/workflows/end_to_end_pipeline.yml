@@ -57,7 +57,7 @@ jobs:
         id: apply
         run: |
           cd azure-terraform
-          terraform apply -auto-approve
+          terraform apply -auto-approve -var="ssh_public_key=${{ secrets.SSH_PUBLIC_KEY }}"
 
       - name: Retrieve Outputs from Terraform State
         id: get_ip
