@@ -17,6 +17,9 @@ jobs:
     env:
       VM_PUBLIC_IP: ${{ secrets.VM_PUBLIC_IP }}          # VM public IP
       SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}    # SSH private key
+      ACR_LOGIN_SERVER: ${{ secrets.ACR_LOGIN_SERVER }}  # ACR login server from Azure secrets
+      ACR_USERNAME: ${{ secrets.ACR_USERNAME }}          # ACR username from Azure secrets
+      ACR_PASSWORD: ${{ secrets.ACR_PASSWORD }}          # ACR password from Azure secrets
     steps:
       - name: Check out the code
         uses: actions/checkout@v2
@@ -26,6 +29,19 @@ jobs:
           echo "${{ env.SSH_PRIVATE_KEY }}" > ssh_key.pem
           chmod 600 ssh_key.pem
 
+      - name: Create ACR Image Pull Secret on Kubernetes VM
+        run: |
+          ssh -o "StrictHostKeyChecking=no" -i ssh_key.pem azureuser@${{ env.VM_PUBLIC_IP }} << EOF
+            kubectl create namespace my-namespace || true  # Avoid errors if namespace exists
+            kubectl delete secret acr-auth -n my-namespace || true  # Remove existing secret if any
+            kubectl create secret docker-registry acr-auth \
+              --docker-server=${{ env.ACR_LOGIN_SERVER }} \
+              --docker-username=${{ env.ACR_USERNAME }} \
+              --docker-password=${{ env.ACR_PASSWORD }} \
+              --docker-email=your-email@example.com \
+              -n my-namespace
+          EOF
+
       - name: Copy Kubernetes Manifests to VM
         run: |
           scp -o "StrictHostKeyChecking=no" -i ssh_key.pem k8s-manifests/*.yaml azureuser@${{ env.VM_PUBLIC_IP }}:/home/azureuser/
@@ -33,7 +49,6 @@ jobs:
       - name: SSH into VM and Apply Kubernetes Configs
         run: |
           ssh -o "StrictHostKeyChecking=no" -i ssh_key.pem azureuser@${{ env.VM_PUBLIC_IP }} << EOF
-            kubectl create namespace my-namespace || true  # Avoid errors if namespace exists
             kubectl apply -f /home/azureuser/mongodb_deployment.yaml -n my-namespace
             kubectl apply -f /home/azureuser/backend_deployment.yaml -n my-namespace
             kubectl apply -f /home/azureuser/frontend_deployment.yaml -n my-namespace
