@@ -21,6 +21,11 @@ spec:
           volumeMounts:
             - name: mongo-init-script
               mountPath: /docker-entrypoint-initdb.d
+          readinessProbe:
+            tcpSocket:
+              port: 27017
+            initialDelaySeconds: 5
+            periodSeconds: 10
       initContainers:
         - name: init-mongo
           image: mongo:latest
