@@ -2,7 +2,7 @@
 - name: Install Docker and Setup kind Cluster
   hosts: localhost
   become: yes
-
+ 
   tasks:
     - name: Install required packages for Docker (without cache update)
       apt:
