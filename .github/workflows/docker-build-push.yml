@@ -19,7 +19,7 @@ jobs:
         uses: actions/checkout@v2
 
       - name: Download ACR Credentials
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v3  # Updated to v3
         with:
           name: acr_credentials
 
