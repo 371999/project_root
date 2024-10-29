@@ -8,10 +8,10 @@ provider "azurerm" {
 
 terraform {
   backend "azurerm" {
-    resource_group_name  = "myBackendResourceGroup"
-    storage_account_name = "mystorageaccount"
-    container_name       = "tfstate"
-    key                  = "dev.tfstate"
+    resource_group_name  = "myBackendResourceGroup"  # Replace with your resource group
+    storage_account_name = "mystorageaccountz4gj6836"        # Replace with your unique storage account name
+    container_name       = "tfstate"                 # Replace with your container name
+    key                  = "dev.tfstate"             # File name for the state in Blob
   }
 }
 
@@ -98,9 +98,6 @@ resource "azurerm_network_security_group" "dev_nsg" {
     source_address_prefix      = "*"
     destination_address_prefix = "*"
   }
-}
-
-  # Additional security rules for HTTP, NodePort, etc.
 }
 
 resource "azurerm_public_ip" "dev_public_ip" {
