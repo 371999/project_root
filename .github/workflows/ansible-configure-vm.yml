@@ -1,0 +1,31 @@
+name: Configure VM with Ansible
+
+on:
+  workflow_dispatch:          # Manual trigger only, as needed
+
+jobs:
+  configure-vm:
+    name: Configure VM
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download VM Public IP
+        uses: actions/download-artifact@v2
+        with:
+          name: vm_public_ip
+
+      - name: Load VM Public IP
+        run: |
+          export VM_PUBLIC_IP=$(cat vm_public_ip.txt)
+
+      - name: Set up SSH Key
+        run: |
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ssh_key.pem
+          chmod 600 ssh_key.pem
+
+      - name: SSH into VM to Install Ansible and Run Playbook
+        run: |
+          ssh -o "StrictHostKeyChecking=no" -i ssh_key.pem azureuser@$VM_PUBLIC_IP << EOF
+            sudo apt update
+            sudo apt install -y ansible
+            ansible-playbook -i "localhost," -c local ~/ansible-playbooks/install_docker-kubernetes.yml
+          EOF
