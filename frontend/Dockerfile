@@ -7,8 +7,8 @@ WORKDIR /app
 # Copy package.json to the working directory
 COPY package.json ./
 
-# Install dependencies
-RUN npm install
+# Clear npm cache and install dependencies with verbose logging
+RUN npm cache clean --force && npm install --verbose
 
 # Copy the rest of the application code to the working directory
 COPY . .
