@@ -6,7 +6,7 @@ provider "azurerm" {
   tenant_id       = "ed27b597-cea0-4942-8c6f-40e6a78bf47d"
 }
      
-terraform {
+terraform { 
   backend "azurerm" {
     client_id       = "dd2f42db-9fe4-4d32-9593-cdf7e597b07a"
     client_secret   = "1mf8Q~N2x1sM_TiFDKCABEGVTgzlPVgCnyZFQb8b"
