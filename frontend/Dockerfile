@@ -1,16 +1,16 @@
-# Use Node.js 16 as the base image
-FROM node:16 AS build
+# Use the official Node.js 14 image as the base image
+FROM node:14 AS build
 
-# Set the working directory
+# Set the working directory in the container
 WORKDIR /app
 
-# Copy only the package.json and package-lock.json files to optimize Docker layer caching
-COPY package.json package-lock.json ./
+# Copy package.json and package-lock.json to the working directory
+COPY package*.json ./
 
-# Clear npm cache and install dependencies
-RUN npm cache clean --force && npm install --verbose
+# Install dependencies
+RUN npm install
 
-# Copy the rest of the application code to the working directory
+# Copy the rest of the application code
 COPY . .
 
 # Build the React application
@@ -19,7 +19,7 @@ RUN npm run build
 # Use nginx to serve the build
 FROM nginx:alpine
 
-# Copy the React build output to nginx's HTML folder
+# Copy the React build files to the nginx HTML folder
 COPY --from=build /app/build /usr/share/nginx/html
 
 # Expose port 80
