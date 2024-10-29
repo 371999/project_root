@@ -21,6 +21,8 @@ spec:
           env:
             - name: MONGO_URI
               value: "mongodb://mongodb-service:27017/mydatabase"
+      imagePullSecrets:
+        - name: acr-auth
 ---
 apiVersion: v1
 kind: Service
