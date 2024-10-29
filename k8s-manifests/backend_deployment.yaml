@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: backend
-          image: shreyas3799.azurecr.io/backend:latest
+          image: shreyas3799.azurecr.io/backend1:latest
           ports:
             - containerPort: 5000
           env:
