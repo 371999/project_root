@@ -5,4 +5,4 @@ function App() {
   return <h1>Hello from MERN Stack Frontend</h1>;
 }
 
-ReactDOM.render(<App />, document.getElementById('root'));
+ReactDOM.render(<App />, document.getElementById('root')); 
