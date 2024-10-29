@@ -9,7 +9,7 @@
         name: "{{ item }}"
         state: present
         update_cache: no
-      loop:
+      loop: 
         - apt-transport-https
         - ca-certificates
         - curl
