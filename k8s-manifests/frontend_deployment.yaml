@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: frontend
-          image: shreyas3799.azurecr.io/frontend:latest
+          image: shreyas3799.azurecr.io/frontend1:latest
           ports:
             - containerPort: 80
       imagePullSecrets:
