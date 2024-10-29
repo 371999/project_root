@@ -1,8 +1,11 @@
-name: Provision Infrastructure
-
 on:
-  workflow_dispatch:  # Manual trigger only
-
+  push:
+    branches:
+      - main   # Triggers when changes are pushed to the main branch
+    paths:
+      - "azure-terraform/**"  # Only triggers when files in the `azure-terraform` directory are changed
+  workflow_dispatch:
+  
 jobs:
   provision-infrastructure:
     name: Provision Infrastructure with Terraform
