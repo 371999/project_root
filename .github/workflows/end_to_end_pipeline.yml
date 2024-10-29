@@ -6,41 +6,9 @@ on:
       - main
 
 jobs:
-  setup-backend:
-    name: Setup Terraform Backend in Azure Blob Storage
-    runs-on: ubuntu-latest
-    env:
-      ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
-      ARM_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
-      ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-      ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
-      TF_VAR_client_id: ${{ secrets.AZURE_CLIENT_ID }}
-      TF_VAR_client_secret: ${{ secrets.AZURE_CLIENT_SECRET }}
-      TF_VAR_subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-      TF_VAR_tenant_id: ${{ secrets.AZURE_TENANT_ID }}
-    outputs:
-      storage_account_name: ${{ steps.get_backend.outputs.storage_account_name }}
-      storage_container_name: ${{ steps.get_backend.outputs.storage_container_name }}
-    steps:
-      - name: Check out the code
-        uses: actions/checkout@v2
-
-      - name: Set up Terraform
-        uses: hashicorp/setup-terraform@v1
-
-      - name: Terraform Init and Apply for Backend
-        id: get_backend
-        run: |
-          cd backend-setup
-          terraform init
-          terraform apply -auto-approve
-          echo "::set-output name=storage_account_name::$(terraform output -raw storage_account_name)"
-          echo "::set-output name=storage_container_name::$(terraform output -raw storage_container_name)"
-
   provision-infrastructure:
     name: Provision Infrastructure with Terraform
     runs-on: ubuntu-latest
-    needs: setup-backend
     env:
       ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
       ARM_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
@@ -58,47 +26,38 @@ jobs:
       - name: Set up Terraform
         uses: hashicorp/setup-terraform@v1
 
-      - name: Configure Backend with Dynamic Storage Account
-        run: |
-          cd azure-terraform
-          cat <<EOF > backend.tf
-          terraform {
-            backend "azurerm" {
-              resource_group_name  = "myBackendResourceGroup"
-              storage_account_name = "${{ needs.setup-backend.outputs.storage_account_name }}"
-              container_name       = "${{ needs.setup-backend.outputs.storage_container_name }}"
-              key                  = "dev.tfstate"
-            }
-          }
-          EOF
-
       - name: Terraform Init with Remote Backend
         run: |
           cd azure-terraform
           terraform init
 
       - name: Terraform Apply for Main Infrastructure
-        id: apply
         run: |
           cd azure-terraform
           terraform apply -auto-approve
-
-      - name: Retrieve Outputs from Terraform State
-        id: get_ip
-        run: |
-          cd azure-terraform
-          echo "::set-output name=vm_public_ip::$(terraform output -raw vm_public_ip)"
-          echo "::set-output name=acr_login_server::$(terraform output -raw acr_login_server)"
-          echo "::set-output name=acr_username::$(terraform output -raw acr_username)"
-          echo "::set-output name=acr_password::$(terraform output -raw acr_password)"
 
   configure-vm:
     name: Configure VM with Ansible
     runs-on: ubuntu-latest
     needs: provision-infrastructure
+    env:
+      ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      ARM_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+      ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
     steps:
       - name: Check out the code
         uses: actions/checkout@v2
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v1
+
+      - name: Fetch VM Public IP from Remote State
+        id: fetch_ip
+        run: |
+          cd azure-terraform
+          terraform init
+          echo "::set-output name=vm_public_ip::$(terraform output -raw vm_public_ip)"
 
       - name: Set up SSH Key
         run: |
@@ -107,7 +66,7 @@ jobs:
 
       - name: SSH into VM to Install Ansible and Run Playbook
         run: |
-          ssh -o "StrictHostKeyChecking=no" -i ssh_key.pem azureuser@${{ needs.provision-infrastructure.outputs.vm_public_ip }} << EOF
+          ssh -o "StrictHostKeyChecking=no" -i ssh_key.pem azureuser@${{ steps.fetch_ip.outputs.vm_public_ip }} << EOF
             sudo apt update
             sudo apt install -y ansible
 
@@ -121,34 +80,66 @@ jobs:
     name: Build and Push Docker Images
     runs-on: ubuntu-latest
     needs: configure-vm
+    env:
+      ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      ARM_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+      ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
     steps:
       - name: Check out the code
         uses: actions/checkout@v2
 
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v1
+
+      - name: Fetch ACR Credentials from Remote State
+        id: fetch_acr
+        run: |
+          cd azure-terraform
+          terraform init
+          echo "::set-output name=acr_login_server::$(terraform output -raw acr_login_server)"
+          echo "::set-output name=acr_username::$(terraform output -raw acr_username)"
+          echo "::set-output name=acr_password::$(terraform output -raw acr_password)"
+
       - name: Log in to Azure Container Registry
         uses: azure/docker-login@v1
         with:
-          login-server: ${{ needs.provision-infrastructure.outputs.acr_login_server }}
-          username: ${{ needs.provision-infrastructure.outputs.acr_username }}
-          password: ${{ needs.provision-infrastructure.outputs.acr_password }}
+          login-server: ${{ steps.fetch_acr.outputs.acr_login_server }}
+          username: ${{ steps.fetch_acr.outputs.acr_username }}
+          password: ${{ steps.fetch_acr.outputs.acr_password }}
 
       - name: Build and Push Frontend Image
         run: |
-          docker build -t ${{ needs.provision-infrastructure.outputs.acr_login_server }}/frontend:v1 -f frontend/Dockerfile .
-          docker push ${{ needs.provision-infrastructure.outputs.acr_login_server }}/frontend:v1
+          docker build -t ${{ steps.fetch_acr.outputs.acr_login_server }}/frontend:v1 -f frontend/Dockerfile .
+          docker push ${{ steps.fetch_acr.outputs.acr_login_server }}/frontend:v1
 
       - name: Build and Push Backend Image
         run: |
-          docker build -t ${{ needs.provision-infrastructure.outputs.acr_login_server }}/backend:v1 -f backend/Dockerfile .
-          docker push ${{ needs.provision-infrastructure.outputs.acr_login_server }}/backend:v1
+          docker build -t ${{ steps.fetch_acr.outputs.acr_login_server }}/backend:v1 -f backend/Dockerfile .
+          docker push ${{ steps.fetch_acr.outputs.acr_login_server }}/backend:v1
 
   deploy-to-kubernetes:
     name: Deploy to Kubernetes
     runs-on: ubuntu-latest
     needs: build-and-push-docker
+    env:
+      ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      ARM_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+      ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
     steps:
       - name: Check out the code
         uses: actions/checkout@v2
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v1
+
+      - name: Fetch VM Public IP from Remote State
+        id: fetch_ip
+        run: |
+          cd azure-terraform
+          terraform init
+          echo "::set-output name=vm_public_ip::$(terraform output -raw vm_public_ip)"
 
       - name: Set up SSH Key
         run: |
@@ -157,15 +148,15 @@ jobs:
 
       - name: Replace ACR Login Server in Kubernetes Manifests
         run: |
-          sed -i "s|{{ ACR_LOGIN_SERVER }}|${{ needs.provision-infrastructure.outputs.acr_login_server }}|g" k8s-manifests/*.yaml
+          sed -i "s|{{ ACR_LOGIN_SERVER }}|${{ steps.fetch_acr.outputs.acr_login_server }}|g" k8s-manifests/*.yaml
 
       - name: Copy Kubernetes Manifests to VM
         run: |
-          scp -o "StrictHostKeyChecking=no" -i ssh_key.pem k8s-manifests/*.yaml azureuser@${{ needs.provision-infrastructure.outputs.vm_public_ip }}:/home/azureuser/
+          scp -o "StrictHostKeyChecking=no" -i ssh_key.pem k8s-manifests/*.yaml azureuser@${{ steps.fetch_ip.outputs.vm_public_ip }}:/home/azureuser/
 
       - name: SSH into VM and Apply Kubernetes Configs
         run: |
-          ssh -o "StrictHostKeyChecking=no" -i ssh_key.pem azureuser@${{ needs.provision-infrastructure.outputs.vm_public_ip }} << EOF
+          ssh -o "StrictHostKeyChecking=no" -i ssh_key.pem azureuser@${{ steps.fetch_ip.outputs.vm_public_ip }} << EOF
             kubectl create namespace my-namespace
             kubectl apply -f /home/azureuser/mongodb_deployment.yaml -n my-namespace
             kubectl apply -f /home/azureuser/backend_deployment.yaml -n my-namespace
