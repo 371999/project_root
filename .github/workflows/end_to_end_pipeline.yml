@@ -14,6 +14,13 @@ jobs:
       ARM_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
       ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
       ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      TF_VAR_client_id: ${{ secrets.AZURE_CLIENT_ID }}
+      TF_VAR_client_secret: ${{ secrets.AZURE_CLIENT_SECRET }}
+      TF_VAR_subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      TF_VAR_tenant_id: ${{ secrets.AZURE_TENANT_ID }}
+      TF_VAR_ssh_public_key: ${{ secrets.SSH_PUBLIC_KEY }}
+    outputs:
+      vm_public_ip: ${{ steps.fetch_ip.outputs.vm_public_ip }}
     steps:
       - name: Check out the code
         uses: actions/checkout@v2
@@ -29,23 +36,7 @@ jobs:
       - name: Terraform Apply for Main Infrastructure
         run: |
           cd azure-terraform
-          terraform apply -auto-approve -var="ssh_public_key=${{ secrets.SSH_PUBLIC_KEY }}"
-
-  configure-vm:
-    name: Configure VM with Ansible
-    runs-on: ubuntu-latest
-    needs: provision-infrastructure
-    env:
-      ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
-      ARM_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
-      ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-      ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
-    steps:
-      - name: Check out the code
-        uses: actions/checkout@v2
-
-      - name: Set up Terraform
-        uses: hashicorp/setup-terraform@v1
+          terraform apply -auto-approve
 
       - name: Fetch VM Public IP from Remote State
         id: fetch_ip
@@ -54,6 +45,16 @@ jobs:
           terraform init
           echo "::set-output name=vm_public_ip::$(terraform output -raw vm_public_ip)"
 
+  configure-vm:
+    name: Configure VM with Ansible
+    runs-on: ubuntu-latest
+    needs: provision-infrastructure
+    env:
+      VM_PUBLIC_IP: ${{ needs.provision-infrastructure.outputs.vm_public_ip }}
+    steps:
+      - name: Check out the code
+        uses: actions/checkout@v2
+
       - name: Set up SSH Key
         run: |
           echo "${{ secrets.SSH_PRIVATE_KEY }}" > ssh_key.pem
@@ -61,7 +62,7 @@ jobs:
 
       - name: SSH into VM to Install Ansible and Run Playbook
         run: |
-          ssh -o "StrictHostKeyChecking=no" -i ssh_key.pem azureuser@${{ steps.fetch_ip.outputs.vm_public_ip }} << EOF
+          ssh -o "StrictHostKeyChecking=no" -i ssh_key.pem azureuser@${{ env.VM_PUBLIC_IP }} << EOF
             sudo apt update
             sudo apt install -y ansible
 
@@ -118,23 +119,10 @@ jobs:
     runs-on: ubuntu-latest
     needs: build-and-push-docker
     env:
-      ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
-      ARM_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
-      ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-      ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      VM_PUBLIC_IP: ${{ needs.provision-infrastructure.outputs.vm_public_ip }}
     steps:
       - name: Check out the code
         uses: actions/checkout@v2
-
-      - name: Set up Terraform
-        uses: hashicorp/setup-terraform@v1
-
-      - name: Fetch VM Public IP from Remote State
-        id: fetch_ip
-        run: |
-          cd azure-terraform
-          terraform init
-          echo "::set-output name=vm_public_ip::$(terraform output -raw vm_public_ip)"
 
       - name: Set up SSH Key
         run: |
@@ -147,11 +135,11 @@ jobs:
 
       - name: Copy Kubernetes Manifests to VM
         run: |
-          scp -o "StrictHostKeyChecking=no" -i ssh_key.pem k8s-manifests/*.yaml azureuser@${{ steps.fetch_ip.outputs.vm_public_ip }}:/home/azureuser/
+          scp -o "StrictHostKeyChecking=no" -i ssh_key.pem k8s-manifests/*.yaml azureuser@${{ env.VM_PUBLIC_IP }}:/home/azureuser/
 
       - name: SSH into VM and Apply Kubernetes Configs
         run: |
-          ssh -o "StrictHostKeyChecking=no" -i ssh_key.pem azureuser@${{ steps.fetch_ip.outputs.vm_public_ip }} << EOF
+          ssh -o "StrictHostKeyChecking=no" -i ssh_key.pem azureuser@${{ env.VM_PUBLIC_IP }} << EOF
             kubectl create namespace my-namespace
             kubectl apply -f /home/azureuser/mongodb_deployment.yaml -n my-namespace
             kubectl apply -f /home/azureuser/backend_deployment.yaml -n my-namespace
