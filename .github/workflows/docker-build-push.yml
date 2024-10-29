@@ -30,10 +30,10 @@ jobs:
 
       - name: Build and Push Frontend Image
         run: |
-          docker build -t ${{ env.ACR_LOGIN_SERVER }}/frontend:latest -f frontend/Dockerfile ./frontend
-          docker push ${{ env.ACR_LOGIN_SERVER }}/frontend:latest
+          docker build -t ${{ env.ACR_LOGIN_SERVER }}/frontend:latest -f frontend/Dockerfile ./frontend1
+          docker push ${{ env.ACR_LOGIN_SERVER }}/frontend2:latest
 
       - name: Build and Push Backend Image
         run: |
-          docker build -t ${{ env.ACR_LOGIN_SERVER }}/backend:latest -f backend/Dockerfile ./backend
-          docker push ${{ env.ACR_LOGIN_SERVER }}/backend:latest
+          docker build -t ${{ env.ACR_LOGIN_SERVER }}/backend:latest -f backend/Dockerfile ./backend2
+          docker push ${{ env.ACR_LOGIN_SERVER }}/backend2:latest
