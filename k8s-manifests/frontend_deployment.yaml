@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: frontend
-          image: <YOUR_ACR_LOGIN_SERVER>/frontend:v1
+          image: shreyas3799.azurecr.io/frontend:v1
           ports:
             - containerPort: 80
 ---
