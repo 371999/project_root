@@ -14,6 +14,9 @@ jobs:
     name: Configure VM
     runs-on: ubuntu-latest
     steps:
+      - name: Check out the code
+        uses: actions/checkout@v2
+
       - name: Download VM Public IP
         uses: actions/download-artifact@v4  # Updated to v4
         with:
@@ -28,10 +31,14 @@ jobs:
           echo "${{ secrets.SSH_PRIVATE_KEY }}" > ssh_key.pem
           chmod 600 ssh_key.pem
 
+      - name: Copy Ansible Playbook to VM
+        run: |
+          scp -o "StrictHostKeyChecking=no" -i ssh_key.pem ansible/playbook.yml azureuser@$VM_PUBLIC_IP:/home/azureuser/
+
       - name: SSH into VM to Install Ansible and Run Playbook
         run: |
           ssh -o "StrictHostKeyChecking=no" -i ssh_key.pem azureuser@$VM_PUBLIC_IP << EOF
             sudo apt update
             sudo apt install -y ansible
-            ansible-playbook -i "localhost," -c local ~/ansible-playbooks/install_docker-kubernetes.yml
+            ansible-playbook -i "localhost," -c local /home/azureuser/playbook.yml
           EOF
