@@ -7,7 +7,6 @@ on:
     paths:
       - "frontend/**"      # Triggers if frontend code is updated
       - "backend/**"       # Triggers if backend code is updated
-      - "Dockerfile"       # Triggers if Dockerfile is updated
   workflow_dispatch:      # Allows for manual triggering
 
 jobs:
@@ -31,10 +30,10 @@ jobs:
 
       - name: Build and Push Frontend Image
         run: |
-          docker build -t ${{ env.ACR_LOGIN_SERVER }}/frontend:latest -f frontend/Dockerfile .
+          docker build -t ${{ env.ACR_LOGIN_SERVER }}/frontend:latest -f frontend/Dockerfile ./frontend
           docker push ${{ env.ACR_LOGIN_SERVER }}/frontend:latest
 
       - name: Build and Push Backend Image
         run: |
-          docker build -t ${{ env.ACR_LOGIN_SERVER }}/backend:latest -f backend/Dockerfile .
+          docker build -t ${{ env.ACR_LOGIN_SERVER }}/backend:latest -f backend/Dockerfile ./backend
           docker push ${{ env.ACR_LOGIN_SERVER }}/backend:latest
