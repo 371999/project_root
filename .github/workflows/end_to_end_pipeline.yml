@@ -4,7 +4,7 @@ on:
   push:
     branches:
       - main
-
+ 
 jobs:
   setup-backend:
     name: Setup Terraform Backend in Azure Blob Storage
