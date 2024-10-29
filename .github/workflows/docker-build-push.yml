@@ -14,20 +14,13 @@ jobs:
   build-and-push-docker:
     name: Build and Push Docker Images
     runs-on: ubuntu-latest
+    env:
+      ACR_LOGIN_SERVER: ${{ secrets.ACR_LOGIN_SERVER }}  # ACR login server
+      ACR_USERNAME: ${{ secrets.ACR_USERNAME }}          # ACR username
+      ACR_PASSWORD: ${{ secrets.ACR_PASSWORD }}          # ACR password
     steps:
       - name: Check out the code
         uses: actions/checkout@v2
-
-      - name: Download ACR Credentials
-        uses: actions/download-artifact@v4  # Updated to v4
-        with:
-          name: acr_credentials
-
-      - name: Load ACR Credentials
-        run: |
-          export ACR_LOGIN_SERVER=$(cat acr_login_server.txt)
-          export ACR_USERNAME=$(cat acr_username.txt)
-          export ACR_PASSWORD=$(cat acr_password.txt)
 
       - name: Log in to Azure Container Registry
         uses: azure/docker-login@v1
@@ -38,10 +31,10 @@ jobs:
 
       - name: Build and Push Frontend Image
         run: |
-          docker build -t $ACR_LOGIN_SERVER/frontend:latest -f frontend/Dockerfile .
-          docker push $ACR_LOGIN_SERVER/frontend:latest
+          docker build -t ${{ env.ACR_LOGIN_SERVER }}/frontend:latest -f frontend/Dockerfile .
+          docker push ${{ env.ACR_LOGIN_SERVER }}/frontend:latest
 
       - name: Build and Push Backend Image
         run: |
-          docker build -t $ACR_LOGIN_SERVER/backend:latest -f backend/Dockerfile .
-          docker push $ACR_LOGIN_SERVER/backend:latest
+          docker build -t ${{ env.ACR_LOGIN_SERVER }}/backend:latest -f backend/Dockerfile .
+          docker push ${{ env.ACR_LOGIN_SERVER }}/backend:latest
