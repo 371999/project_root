@@ -18,6 +18,8 @@ spec:
           image: shreyas3799.azurecr.io/frontend:latest
           ports:
             - containerPort: 80
+      imagePullSecrets:
+        - name: acr-auth
 ---
 apiVersion: v1
 kind: Service
