@@ -1,9 +1,25 @@
 provider "azurerm" {
   features {}
-  client_id       = "dd2f42db-9fe4-4d32-9593-cdf7e597b07a"
-  client_secret   = "1mf8Q~N2x1sM_TiFDKCABEGVTgzlPVgCnyZFQb8b"
-  subscription_id = "cd06d49d-6ae2-4d2b-82e4-50b2b98f55dd"
-  tenant_id       = "ed27b597-cea0-4942-8c6f-40e6a78bf47d"
+  client_id       = var.client_id
+  client_secret   = var.client_secret
+  subscription_id = var.subscription_id
+  tenant_id       = var.tenant_id
+}
+
+# Define variables for sensitive information
+variable "client_id" {}
+variable "client_secret" {}
+variable "subscription_id" {}
+variable "tenant_id" {}
+variable "ssh_public_key" {}
+
+terraform {
+  backend "azurerm" {
+    resource_group_name  = "myBackendResourceGroup"
+    storage_account_name = "mystorageaccount"
+    container_name       = "tfstate"
+    key                  = "dev.tfstate"
+  }
 }
 
 resource "azurerm_resource_group" "dev_rg" {
@@ -41,7 +57,7 @@ resource "azurerm_network_security_group" "dev_nsg" {
     source_address_prefix      = "*"
     destination_address_prefix = "*"
   }
-
+  
   security_rule {
     name                       = "Allow-HTTP-Inbound"
     priority                   = 1001
@@ -89,6 +105,9 @@ resource "azurerm_network_security_group" "dev_nsg" {
     source_address_prefix      = "*"
     destination_address_prefix = "*"
   }
+}
+
+  # Additional security rules for HTTP, NodePort, etc.
 }
 
 resource "azurerm_public_ip" "dev_public_ip" {
@@ -142,7 +161,6 @@ resource "azurerm_linux_virtual_machine" "dev_vm" {
     sku       = "18.04-LTS"
     version   = "latest"
   }
-
 }
 
 resource "azurerm_container_registry" "acr" {
