@@ -33,12 +33,12 @@ jobs:
 
       - name: Copy Ansible Playbook to VM
         run: |
-          scp -o "StrictHostKeyChecking=no" -i ssh_key.pem ansible/playbook.yml azureuser@$VM_PUBLIC_IP:/home/azureuser/
+          scp -o "StrictHostKeyChecking=no" -i ssh_key.pem ansible-playbooks/install_docker-kubernetics.yaml azureuser@$VM_PUBLIC_IP:/home/azureuser/
 
       - name: SSH into VM to Install Ansible and Run Playbook
         run: |
           ssh -o "StrictHostKeyChecking=no" -i ssh_key.pem azureuser@$VM_PUBLIC_IP << EOF
             sudo apt update
             sudo apt install -y ansible
-            ansible-playbook -i "localhost," -c local /home/azureuser/playbook.yml
+            ansible-playbook -i "localhost," -c local /home/azureuser/install_docker-kubernetics.yaml
           EOF
