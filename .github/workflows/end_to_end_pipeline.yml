@@ -3,14 +3,14 @@ name: End-to-End CI/CD Pipeline
 on:
   push:
     branches:
-      - main 
+      - main
 
 jobs:
   provision-infrastructure:
     name: Provision Infrastructure with Terraform
     runs-on: ubuntu-latest
     outputs:
-      vm_ip: ${{ steps.get_ip.outputs.vm_public_ip }}
+      vm_public_ip: ${{ steps.get_ip.outputs.vm_public_ip }}
       acr_login_server: ${{ steps.get_ip.outputs.acr_login_server }}
       acr_username: ${{ steps.get_ip.outputs.acr_username }}
       acr_password: ${{ steps.get_ip.outputs.acr_password }}
@@ -112,7 +112,7 @@ jobs:
 
       - name: SSH into VM and Apply Kubernetes Configs
         run: |
-          ssh -o "StrictHostKeyChecking=no" -i ssh_key.pem azureuser@$vm_public_ip << EOF
+          ssh -o "StrictHostKeyChecking=no" -i ssh_key.pem azureuser@${{ needs.provision-infrastructure.outputs.vm_public_ip }} << EOF
             kubectl create namespace my-namespace
             kubectl apply -f /home/azureuser/mongodb_deployment.yaml -n my-namespace
             kubectl apply -f /home/azureuser/backend_deployment.yaml -n my-namespace
