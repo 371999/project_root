@@ -15,6 +15,9 @@ jobs:
     name: Deploy to Kubernetes
     runs-on: ubuntu-latest
     steps:
+      - name: Check out the code
+        uses: actions/checkout@v2
+
       - name: Download VM Public IP
         uses: actions/download-artifact@v4  # Updated to v4
         with:
@@ -29,10 +32,15 @@ jobs:
           echo "${{ secrets.SSH_PRIVATE_KEY }}" > ssh_key.pem
           chmod 600 ssh_key.pem
 
+      - name: Copy Kubernetes Manifests to VM
+        run: |
+          scp -o "StrictHostKeyChecking=no" -i ssh_key.pem k8s-manifests/*.yaml azureuser@$VM_PUBLIC_IP:/home/azureuser/
+
       - name: SSH into VM and Apply Kubernetes Configs
         run: |
           ssh -o "StrictHostKeyChecking=no" -i ssh_key.pem azureuser@$VM_PUBLIC_IP << EOF
             kubectl create namespace my-namespace || true  # Avoid errors if namespace exists
-            kubectl set image deployment/frontend-deployment frontend-container=$ACR_LOGIN_SERVER/frontend:latest -n my-namespace
-            kubectl set image deployment/backend-deployment backend-container=$ACR_LOGIN_SERVER/backend:latest -n my-namespace
+            kubectl apply -f /home/azureuser/mongodb_deployment.yaml -n my-namespace
+            kubectl apply -f /home/azureuser/backend_deployment.yaml -n my-namespace
+            kubectl apply -f /home/azureuser/frontend_deployment.yaml -n my-namespace
           EOF
