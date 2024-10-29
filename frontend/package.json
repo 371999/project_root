@@ -1,8 +1,8 @@
 {
   "name": "mern-frontend",
   "version": "1.0.0",
-  "description": "Frontend for MERN Stack Application",
-  "main": "index.js",
+  "private": true,
+  "description": "My MERN frontend application",
   "scripts": {
     "start": "react-scripts start",
     "build": "react-scripts build",
@@ -10,10 +10,11 @@
     "eject": "react-scripts eject"
   },
   "dependencies": {
-  "react": "^17.0.2",
-  "react-dom": "^17.0.2",
-  "react-scripts": "5.0.1"
-  }
+    "react": "^17.0.2",
+    "react-dom": "^17.0.2",
+    "react-scripts": "5.0.1"
+  },
+  "devDependencies": {},
   "keywords": [],
   "author": "",
   "license": "ISC"
