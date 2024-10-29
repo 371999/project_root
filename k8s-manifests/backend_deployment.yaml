@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: backend
-          image: <YOUR_ACR_LOGIN_SERVER>/backend:v1
+          image: shreyas3799.azurecr.io/backend:v1
           ports:
             - containerPort: 5000
           env:
