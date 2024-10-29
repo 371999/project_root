@@ -1,0 +1,38 @@
+name: Deploy to Kubernetes
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "k8s-manifests/**"  # Triggers if Kubernetes manifests are updated
+      - "frontend/**"        # Triggers if frontend code is updated
+      - "backend/**"         # Triggers if backend code is updated
+  workflow_dispatch:        # Allows for manual triggering
+
+jobs:
+  deploy-to-kubernetes:
+    name: Deploy to Kubernetes
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download VM Public IP
+        uses: actions/download-artifact@v2
+        with:
+          name: vm_public_ip
+
+      - name: Load VM Public IP
+        run: |
+          export VM_PUBLIC_IP=$(cat vm_public_ip.txt)
+
+      - name: Set up SSH Key
+        run: |
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ssh_key.pem
+          chmod 600 ssh_key.pem
+
+      - name: SSH into VM and Apply Kubernetes Configs
+        run: |
+          ssh -o "StrictHostKeyChecking=no" -i ssh_key.pem azureuser@$VM_PUBLIC_IP << EOF
+            kubectl create namespace my-namespace || true  # Avoid errors if namespace exists
+            kubectl set image deployment/frontend-deployment frontend-container=$ACR_LOGIN_SERVER/frontend:latest -n my-namespace
+            kubectl set image deployment/backend-deployment backend-container=$ACR_LOGIN_SERVER/backend:latest -n my-namespace
+          EOF
