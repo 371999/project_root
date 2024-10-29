@@ -28,7 +28,10 @@ spec:
             - bash
             - "-c"
             - |
-              echo 'use mydatabase;' > /docker-entrypoint-initdb.d/init-mongo.js
+              echo 'use mydatabase;' > /mongo-init/init-mongo.js
+          volumeMounts:
+            - name: mongo-init-script
+              mountPath: /mongo-init
       volumes:
         - name: mongo-init-script
           emptyDir: {}
