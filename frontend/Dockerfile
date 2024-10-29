@@ -9,7 +9,7 @@ COPY package.json ./
 
 # Install dependencies (use --omit=dev instead of --production)
 RUN npm install --omit=dev
-
+ 
 # Copy the rest of the application code to the working directory
 COPY . .
 
