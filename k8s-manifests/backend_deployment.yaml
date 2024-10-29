@@ -4,7 +4,7 @@ metadata:
   name: backend
   namespace: my-namespace
 spec:
-  replicas: 1 
+  replicas: 1
   selector:
     matchLabels:
       app: backend
@@ -21,6 +21,18 @@ spec:
           env:
             - name: MONGO_URI
               value: "mongodb://mongodb-service:27017/mydatabase"
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 5000
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 5000
+            initialDelaySeconds: 5
+            periodSeconds: 10
       imagePullSecrets:
         - name: acr-auth
 ---
