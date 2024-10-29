@@ -13,31 +13,25 @@ jobs:
   configure-vm:
     name: Configure VM
     runs-on: ubuntu-latest
+    env:
+      VM_PUBLIC_IP: ${{ secrets.VM_PUBLIC_IP }}          # VM public IP stored in GitHub secrets
+      SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}    # SSH private key stored in GitHub secrets
     steps:
       - name: Check out the code
         uses: actions/checkout@v2
 
-      - name: Download VM Public IP
-        uses: actions/download-artifact@v4  # Updated to v4
-        with:
-          name: vm_public_ip
-
-      - name: Load VM Public IP
-        run: |
-          export VM_PUBLIC_IP=$(cat vm_public_ip.txt)
-
       - name: Set up SSH Key
         run: |
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ssh_key.pem
+          echo "${{ env.SSH_PRIVATE_KEY }}" > ssh_key.pem
           chmod 600 ssh_key.pem
 
       - name: Copy Ansible Playbook to VM
         run: |
-          scp -o "StrictHostKeyChecking=no" -i ssh_key.pem ansible-playbooks/install_docker-kubernetics.yaml azureuser@$VM_PUBLIC_IP:/home/azureuser/
+          scp -o "StrictHostKeyChecking=no" -i ssh_key.pem ansible-playbooks/install_docker-kubernetics.yaml azureuser@${{ env.VM_PUBLIC_IP }}:/home/azureuser/
 
       - name: SSH into VM to Install Ansible and Run Playbook
         run: |
-          ssh -o "StrictHostKeyChecking=no" -i ssh_key.pem azureuser@$VM_PUBLIC_IP << EOF
+          ssh -o "StrictHostKeyChecking=no" -i ssh_key.pem azureuser@${{ env.VM_PUBLIC_IP }} << EOF
             sudo apt update
             sudo apt install -y ansible
             ansible-playbook -i "localhost," -c local /home/azureuser/install_docker-kubernetics.yaml
