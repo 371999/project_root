@@ -5,7 +5,7 @@ provider "azurerm" {
   subscription_id = "cd06d49d-6ae2-4d2b-82e4-50b2b98f55dd"
   tenant_id       = "ed27b597-cea0-4942-8c6f-40e6a78bf47d"
 }
-     
+      
 terraform {  
   backend "azurerm" {
     client_id       = "dd2f42db-9fe4-4d32-9593-cdf7e597b07a"
