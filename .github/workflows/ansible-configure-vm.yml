@@ -1,7 +1,13 @@
 name: Configure VM with Ansible
 
 on:
-  workflow_dispatch:          # Manual trigger only, as needed
+  push:
+    branches:
+      - main
+    paths:
+      - "ansible/**"         # Triggers if files in the ansible directory are changed
+      - "azure-terraform/**"  # Triggers if Terraform files are modified (optional)
+  workflow_dispatch:          # Allows for manual triggering
 
 jobs:
   configure-vm:
