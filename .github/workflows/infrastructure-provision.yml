@@ -1,0 +1,57 @@
+name: Provision Infrastructure
+
+on:
+  workflow_dispatch:  # Manual trigger only
+
+jobs:
+  provision-infrastructure:
+    name: Provision Infrastructure with Terraform
+    runs-on: ubuntu-latest
+    env:
+      ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      ARM_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+      ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+    steps:
+      - name: Check out the code
+        uses: actions/checkout@v2
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v1
+
+      - name: Terraform Init
+        run: |
+          cd azure-terraform
+          terraform init  # No need for -backend-config as it's in main.tf
+
+      - name: Terraform Apply
+        id: fetch_outputs
+        run: |
+          cd azure-terraform
+          terraform apply -auto-approve
+          echo "::set-output name=vm_public_ip::$(terraform output -raw vm_public_ip)"
+          echo "::set-output name=acr_login_server::$(terraform output -raw acr_login_server)"
+          echo "::set-output name=acr_username::$(terraform output -raw acr_username)"
+          echo "::set-output name=acr_password::$(terraform output -raw acr_password)"
+
+      - name: Save Outputs as Artifacts
+        run: |
+          echo "${{ steps.fetch_outputs.outputs.vm_public_ip }}" > vm_public_ip.txt
+          echo "${{ steps.fetch_outputs.outputs.acr_login_server }}" > acr_login_server.txt
+          echo "${{ steps.fetch_outputs.outputs.acr_username }}" > acr_username.txt
+          echo "${{ steps.fetch_outputs.outputs.acr_password }}" > acr_password.txt
+
+      - name: Upload VM Public IP
+        uses: actions/upload-artifact@v2
+        with:
+          name: vm_public_ip
+          path: vm_public_ip.txt
+
+      - name: Upload ACR Credentials
+        uses: actions/upload-artifact@v2
+        with:
+          name: acr_credentials
+          path: |
+            acr_login_server.txt
+            acr_username.txt
+            acr_password.txt
