@@ -3,23 +3,25 @@ name: Build and Push Docker Images
 on:
   push:
     branches:
-      - main
+      - shreyas
     paths:
-      - "frontend/**"      # Triggers if frontend code is updated
-      - "backend/**"       # Triggers if backend code is updated
-  workflow_dispatch:      # Allows for manual triggering
+      - "frontend/**"
+      - "backend/**"
+  workflow_dispatch:
 
 jobs:
   build-and-push-docker:
     name: Build and Push Docker Images
     runs-on: ubuntu-latest
     env:
-      ACR_LOGIN_SERVER: ${{ secrets.ACR_LOGIN_SERVER }}  # ACR login server
-      ACR_USERNAME: ${{ secrets.ACR_USERNAME }}          # ACR username
-      ACR_PASSWORD: ${{ secrets.ACR_PASSWORD }}          # ACR password
+      ACR_LOGIN_SERVER: ${{ secrets.ACR_LOGIN_SERVER }}
+      ACR_USERNAME: ${{ secrets.ACR_USERNAME }}
+      ACR_PASSWORD: ${{ secrets.ACR_PASSWORD }}
     steps:
       - name: Check out the code
         uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
 
       - name: Log in to Azure Container Registry
         uses: azure/docker-login@v1
@@ -28,12 +30,53 @@ jobs:
           username: ${{ env.ACR_USERNAME }}
           password: ${{ env.ACR_PASSWORD }}
 
-      - name: Build and Push Frontend Image
+      - name: Set Image Tags
         run: |
-          docker build -t ${{ env.ACR_LOGIN_SERVER }}/frontend1:latest -f frontend/Dockerfile ./frontend
-          docker push ${{ env.ACR_LOGIN_SERVER }}/frontend1:latest
+          FRONTEND_IMAGE_TAG="frontend-v${{ github.run_number }}"
+          BACKEND_IMAGE_TAG="backend-v${{ github.run_number }}"
+          echo "FRONTEND_IMAGE_TAG=${FRONTEND_IMAGE_TAG}" >> $GITHUB_ENV
+          echo "BACKEND_IMAGE_TAG=${BACKEND_IMAGE_TAG}" >> $GITHUB_ENV
+
+      - name: Determine if frontend changed
+        id: frontend_changed
+        run: |
+          PREVIOUS_SHA="${{ github.event.before }}"
+          CURRENT_SHA="${{ github.sha }}"
+          if [ -z "$PREVIOUS_SHA" ]; then
+            echo "No previous commit; assuming full build required."
+            echo "build_frontend=true" >> $GITHUB_ENV
+          elif git diff --name-only "$PREVIOUS_SHA" "$CURRENT_SHA" | grep -q '^frontend/'; then
+            echo "Frontend changed."
+            echo "build_frontend=true" >> $GITHUB_ENV
+          else
+            echo "Frontend not changed."
+            echo "build_frontend=false" >> $GITHUB_ENV
+          fi
+
+      - name: Determine if backend changed
+        id: backend_changed
+        run: |
+          PREVIOUS_SHA="${{ github.event.before }}"
+          CURRENT_SHA="${{ github.sha }}"
+          if [ -z "$PREVIOUS_SHA" ]; then
+            echo "No previous commit; assuming full build required."
+            echo "build_backend=true" >> $GITHUB_ENV
+          elif git diff --name-only "$PREVIOUS_SHA" "$CURRENT_SHA" | grep -q '^backend/'; then
+            echo "Backend changed."
+            echo "build_backend=true" >> $GITHUB_ENV
+          else
+            echo "Backend not changed."
+            echo "build_backend=false" >> $GITHUB_ENV
+          fi
+
+      - name: Build and Push Frontend Image
+        if: env.build_frontend == 'true'
+        run: |
+          docker build -t ${{ env.ACR_LOGIN_SERVER }}/${{ env.FRONTEND_IMAGE_TAG }} -f frontend/Dockerfile ./frontend
+          docker push ${{ env.ACR_LOGIN_SERVER }}/${{ env.FRONTEND_IMAGE_TAG }}
 
       - name: Build and Push Backend Image
+        if: env.build_backend == 'true'
         run: |
-          docker build -t ${{ env.ACR_LOGIN_SERVER }}/backend2:latest -f backend/Dockerfile ./backend
-          docker push ${{ env.ACR_LOGIN_SERVER }}/backend2:latest
+         docker build -t ${{ env.ACR_LOGIN_SERVER }}/${{ env.BACKEND_IMAGE_TAG }} -f backend/Dockerfile ./backend
+         docker push ${{ env.ACR_LOGIN_SERVER }}/${{ env.BACKEND_IMAGE_TAG }}
